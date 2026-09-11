@@ -1,0 +1,5 @@
+event,member,amount,wallet,address,tx_hash,voted_at
+GE4,Sita,3000,wallet-001,0xabc,0xtx001,2024-01-01T10:00:00+07:00
+GE4,Champoo,2000,wallet-001,0xabc,0xtx002,2024-01-02T10:00:00+07:00
+GE5,Nammonn,500,wallet-001,0xabc,0xtx003,2025-01-01T10:00:00+07:00
+Nippon,Nammonn,20,wallet-001,0xabc,0xtx004,2025-04-01T10:00:00+07:00

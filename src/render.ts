@@ -1,0 +1,62 @@
+import { EmbedBuilder } from "discord.js";
+import { Decimal } from "decimal.js";
+import { formatTokens, groupVotes } from "./domain.js";
+import type { VoteRow } from "./db.js";
+
+const safe = (value: string, max = 1000) => value.length > max ? `${value.slice(0, max - 1)}…` : value;
+
+function formatVoteDate(value: string | null): string {
+  if (!value) return "ไม่ระบุเวลา";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("th-TH", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export function walletEmbed(identity: string, rows: VoteRow[]): EmbedBuilder {
+  const embed = new EmbedBuilder().setTitle("สรุปประวัติการโหวต").setDescription(`\`${safe(identity, 100)}\``).setColor(0xe91e63);
+  if (!rows.length) return embed.addFields({ name: "ผลการค้นหา", value: "ไม่พบข้อมูล" });
+  const grouped = groupVotes(rows);
+  for (const [event, members] of [...grouped].slice(0, 25)) {
+    const transactionCounts = new Map<string, number>();
+    rows.filter(row => row.event === event).forEach(row =>
+      transactionCounts.set(row.member, (transactionCounts.get(row.member) ?? 0) + 1));
+    const value = [...members].sort((a, b) => b[1].comparedTo(a[1]))
+      .map(([member, amount]) => `• ${member}: **${formatTokens(amount)} tokens** (${transactionCounts.get(member)} tx)`).join("\n");
+    embed.addFields({ name: event, value: safe(value) });
+  }
+  const total = rows.reduce((sum, row) => sum.plus(row.amount), new Decimal(0));
+  return embed.setFooter({ text: `รวม ${formatTokens(total)} tokens • ${rows.length} transactions` });
+}
+
+export function memberEmbed(member: string, event: string | undefined, rows: VoteRow[]): EmbedBuilder {
+  const embed = new EmbedBuilder().setTitle(`ตารางโหวต: ${member}`).setColor(0x8e44ad);
+  if (!rows.length) return embed.setDescription("ไม่พบข้อมูล");
+  const grouped = new Map<string, Decimal>();
+  rows.forEach(r => grouped.set(r.event, (grouped.get(r.event) ?? new Decimal(0)).plus(r.amount)));
+  embed.setDescription([...grouped].map(([e, n]) => `**${e}** — ${formatTokens(n)} tokens`).join("\n"));
+  if (event) embed.setFooter({ text: `กรองงาน: ${event}` });
+  return embed;
+}
+
+export function transactionsEmbed(identity: string, rows: VoteRow[], page: number): EmbedBuilder {
+  const size = 10;
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const current = Math.min(page, pages);
+  const list = rows.slice((current - 1) * size, current * size);
+  const body = list.map((r, i) => {
+    const tx = r.tx_hash ? ` • \`${safe(r.tx_hash, 18)}\`` : "";
+    return `${(current - 1) * size + i + 1}. **${r.member}** — ${formatTokens(r.amount)} tokens\n${formatVoteDate(r.voted_at)} • ${r.event}${tx}`;
+  }).join("\n");
+  return new EmbedBuilder()
+    .setTitle(`โหวตทั้งหมด ${rows.length.toLocaleString("en-US")} transactions`)
+    .setDescription(body || "ไม่พบข้อมูล")
+    .setFooter({ text: `Address: ${safe(identity, 40)} • หน้า ${current}/${pages}` })
+    .setColor(0x3498db);
+}
