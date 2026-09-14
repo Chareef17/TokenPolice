@@ -189,7 +189,7 @@ Nammonn: 500 tokens (2 tx)
 ```text
 /whale setup channel:#whale-alert
 /whale setup channel:#whale-alert threshold:1000
-/whale test member:Sita amount:1000 address:0x1234...
+/whale test amount:1000 address:0x1234... tx:0xabcd...
 /whale status
 /whale disable
 ```

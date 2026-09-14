@@ -1,4 +1,4 @@
-import { ChannelType, Client, Events, GatewayIntentBits, PermissionFlagsBits } from "discord.js";
+import { ChannelType, Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from "discord.js";
 import { botConfig, botSettingsDatabasePath, ge6DatabasePath, historicalDatabasePath, tokenxExplorerUrl } from "./config.js";
 import { VoteRepository } from "./db.js";
 import { commands } from "./commands.js";
@@ -42,7 +42,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === "wallet") {
       const id = interaction.options.getString("id", true);
       const visibility = settingsRepo.getVisibility(interaction.guildId, "wallet");
-      await interaction.reply({ embeds: [walletEmbed(id, repo.byIdentity(id))], ephemeral: visibility === "private" });
+      await interaction.reply({ embeds: [walletEmbed(id, repo.byIdentity(id))], ...(visibility === "private" ? { flags: MessageFlags.Ephemeral } : {}) });
     } else if (interaction.commandName === "member") {
       const name = interaction.options.getString("name", true);
       const event = interaction.options.getString("event") ?? undefined;
@@ -53,17 +53,17 @@ client.on(Events.InteractionCreate, async interaction => {
       const page = interaction.options.getInteger("page") ?? 1;
       const rows = repo.byIdentity(id).filter(r => !event || r.event.toLowerCase() === event.toLowerCase());
       const visibility = settingsRepo.getVisibility(interaction.guildId, "transactions");
-      await interaction.reply({ embeds: [transactionsEmbed(id, rows, page)], ephemeral: visibility === "private" });
+      await interaction.reply({ embeds: [transactionsEmbed(id, rows, page)], ...(visibility === "private" ? { flags: MessageFlags.Ephemeral } : {}) });
     } else if (interaction.commandName === "privacy") {
       if (!interaction.guildId || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        await interaction.reply({ content: "คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลเซิร์ฟเวอร์", ephemeral: true });
+        await interaction.reply({ content: "คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลเซิร์ฟเวอร์", flags: MessageFlags.Ephemeral });
         return;
       }
       const command = interaction.options.getString("command", true) as "wallet" | "transactions";
       const visibility = interaction.options.getString("visibility", true) as "private" | "public";
       settingsRepo.setVisibility(interaction.guildId, command, visibility);
       const label = visibility === "private" ? "เฉพาะผู้ค้นหา" : "ทุกคนในห้อง";
-      await interaction.reply({ content: `ตั้งค่า /${command} เป็น **${label}** แล้ว`, ephemeral: true });
+      await interaction.reply({ content: `ตั้งค่า /${command} เป็น **${label}** แล้ว`, flags: MessageFlags.Ephemeral });
     } else if (interaction.commandName === "forecast") {
       const subcommand = interaction.options.getSubcommand();
       if (subcommand === "table") {
@@ -76,7 +76,7 @@ client.on(Events.InteractionCreate, async interaction => {
       }
     } else if (interaction.commandName === "whale") {
       if (!interaction.guild || !interaction.memberPermissions?.has([PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels])) {
-        await interaction.reply({ content: "คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลที่มีสิทธิ์ Manage Server และ Manage Channels", ephemeral: true });
+        await interaction.reply({ content: "คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลที่มีสิทธิ์ Manage Server และ Manage Channels", flags: MessageFlags.Ephemeral });
         return;
       }
       const subcommand = interaction.options.getSubcommand();
@@ -84,7 +84,7 @@ client.on(Events.InteractionCreate, async interaction => {
         const selectedChannel = interaction.options.getChannel("channel", true);
         const channel = await interaction.guild.channels.fetch(selectedChannel.id);
         if (!channel || channel.type !== ChannelType.GuildText) {
-          await interaction.reply({ content: "กรุณาเลือก Text Channel", ephemeral: true });
+          await interaction.reply({ content: "กรุณาเลือก Text Channel", flags: MessageFlags.Ephemeral });
           return;
         }
         const threshold = canonicalAmount(interaction.options.getNumber("threshold") ?? 1000);
@@ -96,29 +96,30 @@ client.on(Events.InteractionCreate, async interaction => {
           ViewChannel: true, SendMessages: true, EmbedLinks: true,
         });
         settingsRepo.setWhaleConfig(interaction.guild.id, channel.id, threshold);
-        await interaction.reply({ content: `ตั้ง Whale Alert ที่ ${channel} สำหรับยอดตั้งแต่ **${threshold} tokens** และล็อกห้องแล้ว`, ephemeral: true });
+        await interaction.reply({ content: `ตั้ง Whale Alert ที่ ${channel} สำหรับยอดตั้งแต่ **${threshold} tokens** และล็อกห้องแล้ว`, flags: MessageFlags.Ephemeral });
       } else if (subcommand === "test") {
         const config = settingsRepo.getWhaleConfig(interaction.guild.id);
         if (!config?.enabled) {
-          await interaction.reply({ content: "ยังไม่ได้ตั้งห้อง Whale Alert กรุณาใช้ /whale setup ก่อน", ephemeral: true });
+          await interaction.reply({ content: "ยังไม่ได้ตั้งห้อง Whale Alert กรุณาใช้ /whale setup ก่อน", flags: MessageFlags.Ephemeral });
           return;
         }
         const amount = canonicalAmount(interaction.options.getNumber("amount", true));
         const sent = await sendWhaleAlerts(interaction.client, settingsRepo, {
-          member: interaction.options.getString("member", true), amount,
+          amount,
           voterAddress: interaction.options.getString("address") ?? "0x0000000000000000000000000000000000000000",
+          txHash: interaction.options.getString("tx") ?? undefined,
           timestamp: new Date().toISOString(),
         }, tokenxExplorerUrl, interaction.guild.id);
-        await interaction.reply({ content: sent ? "ส่ง Whale Alert ทดสอบแล้ว" : `ยอดทดสอบต่ำกว่า threshold ${config.threshold} tokens`, ephemeral: true });
+        await interaction.reply({ content: sent ? "ส่ง Whale Alert ทดสอบแล้ว" : `ยอดทดสอบต่ำกว่า threshold ${config.threshold} tokens`, flags: MessageFlags.Ephemeral });
       } else if (subcommand === "status") {
         const whale = settingsRepo.getWhaleConfig(interaction.guild.id);
         const message = whale?.enabled
           ? `Whale Alert เปิดอยู่ที่ <#${whale.channelId}> ยอดขั้นต่ำ **${whale.threshold} tokens**`
           : "Whale Alert ยังไม่เปิดใช้งาน";
-        await interaction.reply({ content: message, ephemeral: true });
+        await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
       } else {
         settingsRepo.disableWhaleAlerts(interaction.guild.id);
-        await interaction.reply({ content: "ปิด Whale Alert แล้ว (สิทธิ์ของห้องยังคงล็อกอยู่)", ephemeral: true });
+        await interaction.reply({ content: "ปิด Whale Alert แล้ว (สิทธิ์ของห้องยังคงล็อกอยู่)", flags: MessageFlags.Ephemeral });
       }
     } else if (interaction.commandName === "ge6") {
       const subcommand = interaction.options.getSubcommand();
@@ -133,8 +134,8 @@ client.on(Events.InteractionCreate, async interaction => {
   } catch (error) {
     console.error(error);
     const message = "เกิดข้อผิดพลาดในการค้นข้อมูล กรุณาลองใหม่";
-    if (interaction.replied || interaction.deferred) await interaction.followUp({ content: message, ephemeral: true });
-    else await interaction.reply({ content: message, ephemeral: true });
+    if (interaction.replied || interaction.deferred) await interaction.followUp({ content: message, flags: MessageFlags.Ephemeral });
+    else await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
   }
 });
 

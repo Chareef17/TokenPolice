@@ -29,9 +29,9 @@ export const commands = [
         .addChannelTypes(ChannelType.GuildText))
       .addNumberOption(o => o.setName("threshold").setDescription("ยอดขั้นต่ำ (ค่าเริ่มต้น 1,000 tokens)").setMinValue(0.000000000000000001)))
     .addSubcommand(s => s.setName("test").setDescription("ส่ง Whale Alert ทดสอบ")
-      .addStringOption(o => o.setName("member").setDescription("ชื่อเมมเบอร์").setRequired(true))
-      .addNumberOption(o => o.setName("amount").setDescription("จำนวน tokens").setRequired(true).setMinValue(0.000000000000000001))
-      .addStringOption(o => o.setName("address").setDescription("address ตัวอย่าง")))
+      .addNumberOption(o => o.setName("amount").setDescription("จำนวนโหวต (tokens)").setRequired(true).setMinValue(0.000000000000000001))
+      .addStringOption(o => o.setName("address").setDescription("address ตัวอย่าง"))
+      .addStringOption(o => o.setName("tx").setDescription("transaction hash ตัวอย่าง")))
     .addSubcommand(s => s.setName("status").setDescription("ดูสถานะ Whale Alert"))
     .addSubcommand(s => s.setName("disable").setDescription("ปิด Whale Alert")),
   new SlashCommandBuilder().setName("ge6").setDescription("ดูรายชื่อผู้สมัครและเพลงที่คาดหวัง")

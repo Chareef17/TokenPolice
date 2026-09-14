@@ -179,7 +179,7 @@
 
 ```text
 /whale setup channel:#whale-alert threshold:1000
-/whale test member:Sita amount:1000 address:0x1234...
+/whale test amount:1000 address:0x1234... tx:0xabcd...
 /whale status
 /whale disable
 ```
@@ -191,7 +191,7 @@
 - ล็อกไม่ให้ `@everyone` ส่งข้อความ เพิ่ม reaction หรือสร้าง thread
 - ให้บอต View Channel, Send Messages และ Embed Links
 - ทดสอบ alert ได้ก่อนเชื่อม TokenX
-- แสดงเมมเบอร์ จำนวน token address แบบย่อ block และลิงก์ transaction
+- แสดงจำนวนโหวต address แบบย่อ เวลา block และลิงก์ transaction (GE6 เป็น blind vote จึงไม่แสดงเมมเบอร์)
 - ใช้ได้เฉพาะผู้มีสิทธิ์ Manage Server และ Manage Channels
 
 Whale Alert จากข้อมูลจริงต้องถูกเรียกหลัง indexer ยืนยัน transaction แล้ว และต้อง deduplicate ด้วย `(tx_hash, log_index)`
