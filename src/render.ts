@@ -5,11 +5,6 @@ import type { VoteRow } from "./db.js";
 
 const safe = (value: string, max = 1000) => value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
-// Discord ปฏิเสธ embed ที่รวมทุกส่วนเกิน 6000 ตัวอักษร หรือมีเกิน 25 fields
-const EMBED_TOTAL_LIMIT = 6000;
-const EMBED_FIELD_LIMIT = 25;
-const FOOTER_RESERVE = 200;
-
 function formatVoteDate(value: string | null): string {
   if (!value) return "ไม่ระบุเวลา";
   const date = new Date(value);
@@ -25,28 +20,17 @@ function formatVoteDate(value: string | null): string {
 }
 
 export function walletEmbed(identity: string, rows: VoteRow[]): EmbedBuilder {
-  const title = "สรุปประวัติการโหวต";
-  const description = `\`${safe(identity, 100)}\``;
-  const embed = new EmbedBuilder().setTitle(title).setDescription(description).setColor(0xe91e63);
+  const embed = new EmbedBuilder().setTitle("สรุปประวัติการโหวต").setDescription(`\`${safe(identity, 100)}\``).setColor(0xe91e63);
   if (!rows.length) return embed.addFields({ name: "ผลการค้นหา", value: "ไม่พบข้อมูล" });
-  const grouped = [...groupVotes(rows)];
-  // เหลือ 1 slot ไว้บอกว่าตัดอะไรทิ้ง เมื่องานมีมากกว่าที่ Discord รับไหว
-  const maxFields = grouped.length > EMBED_FIELD_LIMIT ? EMBED_FIELD_LIMIT - 1 : EMBED_FIELD_LIMIT;
-  let budget = EMBED_TOTAL_LIMIT - title.length - description.length - FOOTER_RESERVE;
-  let shown = 0;
-  for (const [event, members] of grouped.slice(0, maxFields)) {
+  const grouped = groupVotes(rows);
+  for (const [event, members] of [...grouped].slice(0, 25)) {
     const transactionCounts = new Map<string, number>();
     rows.filter(row => row.event === event).forEach(row =>
       transactionCounts.set(row.member, (transactionCounts.get(row.member) ?? 0) + 1));
-    const value = safe([...members].sort((a, b) => b[1].comparedTo(a[1]))
-      .map(([member, amount]) => `• ${member}: **${formatTokens(amount)} tokens** (${transactionCounts.get(member)} tx)`).join("\n"));
-    if (budget < event.length + value.length) break;
-    budget -= event.length + value.length;
-    embed.addFields({ name: event, value });
-    shown += 1;
+    const value = [...members].sort((a, b) => b[1].comparedTo(a[1]))
+      .map(([member, amount]) => `• ${member}: **${formatTokens(amount)} tokens** (${transactionCounts.get(member)} tx)`).join("\n");
+    embed.addFields({ name: event, value: safe(value) });
   }
-  const hidden = grouped.length - shown;
-  if (hidden > 0) embed.addFields({ name: "แสดงไม่ครบ", value: `ยังมีอีก ${hidden} งาน ใช้ \`/transactions\` เพื่อดูทีละรายการ` });
   const total = rows.reduce((sum, row) => sum.plus(row.amount), new Decimal(0));
   return embed.setFooter({ text: `รวม ${formatTokens(total)} tokens • ${rows.length} transactions` });
 }

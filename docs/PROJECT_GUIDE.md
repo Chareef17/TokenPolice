@@ -179,7 +179,7 @@
 
 ```text
 /whale setup channel:#whale-alert threshold:1000
-/whale test amount:1000 address:0x1234... tx:0xabcd...
+/whale test member:Sita amount:1000 address:0x1234...
 /whale status
 /whale disable
 ```
@@ -191,10 +191,21 @@
 - ล็อกไม่ให้ `@everyone` ส่งข้อความ เพิ่ม reaction หรือสร้าง thread
 - ให้บอต View Channel, Send Messages และ Embed Links
 - ทดสอบ alert ได้ก่อนเชื่อม TokenX
-- แสดงจำนวนโหวต address แบบย่อ เวลา block และลิงก์ transaction (GE6 เป็น blind vote จึงไม่แสดงเมมเบอร์)
+- แสดงเมมเบอร์ จำนวน token address แบบย่อ block และลิงก์ transaction
 - ใช้ได้เฉพาะผู้มีสิทธิ์ Manage Server และ Manage Channels
 
-Whale Alert จากข้อมูลจริงต้องถูกเรียกหลัง indexer ยืนยัน transaction แล้ว และต้อง deduplicate ด้วย `(tx_hash, log_index)`
+Whale Alert จากข้อมูลจริงถูกเรียกโดย `blockscout-ge6-indexer.ts` หลัง Blockscout ส่ง log ที่ยืนยันแล้ว และ deduplicate ด้วย `(tx_hash, log_index)`
+
+GE6 production poll:
+
+- Contract `0x86a1F49e1b1Cbd69971e99B66123264c75Ac2c8F`
+- Creation transaction `0x151b2ca5a3715fc6fc23eb52218b292487c971e1cdb4d432d8521ef192689919`
+- Start block `49475830`; end block `50696530`
+- Event `Voted(address indexed _voter,uint256 indexed _index,uint256 _amount,bytes32 _hash)`
+- `_amount` ใช้ 18 decimals
+- Polling ผ่าน Blockscout API v2 ไม่พึ่ง RPC
+- Cursor อยู่ใน `sync_state`; raw confirmed logs อยู่ใน `chain_events`
+- `_hash` ถูก resolve จาก bytes32 string หรือ `data/ge6-vote-targets.json`
 
 ## 5. ฐานข้อมูล
 
@@ -274,15 +285,15 @@ withmywish.com/ge2026
   → /ge6 candidates, /ge6 member
 ```
 
-### TokenX GE6 ในอนาคต
+### TokenX GE6
 
 ```text
-TokenX RPC/WebSocket
-  → historical sync ด้วย eth_getLogs
-  → real-time block/log listener
-  → decode voting event
-  → รอ confirmations
-  → ge6-analysis.sqlite
+TokenX ElectionPoll
+  → Event Voted
+  → Blockscout API v2 address logs
+  → blockscout-ge6-indexer.ts
+  → แปลง amount จาก 18 decimals และ resolve _hash เป็น member
+  → ge6-analysis.sqlite (chain_events + sync_state)
   → Whale Alert
   → prediction pipeline
   → /forecast

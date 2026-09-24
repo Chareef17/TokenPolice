@@ -3,8 +3,8 @@ import { Decimal } from "decimal.js";
 import type { BotSettingsRepository } from "./bot-settings-db.js";
 import { formatTokens, normalizeIdentifier } from "./domain.js";
 
-// GE6 เป็น blind vote จึงไม่รู้ว่าโหวตให้ใคร รู้แค่ address จำนวนโหวต เวลา และ transaction
 export type WhaleVote = {
+  member: string;
   amount: string;
   voterAddress: string;
   txHash?: string;
@@ -14,27 +14,18 @@ export type WhaleVote = {
 
 const shortAddress = (value: string): string => value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
 
-const discordTime = (timestamp: string): string | undefined => {
-  const parsed = Date.parse(timestamp);
-  return Number.isNaN(parsed) ? undefined : `<t:${Math.floor(parsed / 1000)}:f> (<t:${Math.floor(parsed / 1000)}:R>)`;
-};
-
 export function whaleAlertEmbed(vote: WhaleVote, explorerUrl: string): EmbedBuilder {
-  const explorer = explorerUrl.replace(/\/$/, "");
   const embed = new EmbedBuilder()
     .setTitle("Whale Alert")
     .setColor(0x00bcd4)
     .addFields(
-      { name: "Votes", value: `**${formatTokens(vote.amount)} tokens**`, inline: true },
-      { name: "Address", value: `\`${shortAddress(normalizeIdentifier(vote.voterAddress))}\``, inline: true },
-    );
+      { name: "Member", value: vote.member, inline: true },
+      { name: "Amount", value: `**${formatTokens(vote.amount)} tokens**`, inline: true },
+      { name: "Address", value: `\`${shortAddress(normalizeIdentifier(vote.voterAddress))}\``, inline: false },
+    )
+    .setTimestamp(new Date(vote.timestamp));
   if (vote.blockNumber !== undefined) embed.addFields({ name: "Block", value: vote.blockNumber.toLocaleString("en-US"), inline: true });
-  const time = discordTime(vote.timestamp);
-  if (time) embed.addFields({ name: "Time", value: time, inline: false }).setTimestamp(new Date(vote.timestamp));
-  if (vote.txHash) {
-    embed.addFields({ name: "Transaction", value: `[\`${shortAddress(vote.txHash)}\`](${explorer}/tx/${vote.txHash})`, inline: false });
-    embed.setURL(`${explorer}/tx/${vote.txHash}`);
-  }
+  if (vote.txHash) embed.setURL(`${explorerUrl.replace(/\/$/, "")}/tx/${vote.txHash}`);
   return embed;
 }
 

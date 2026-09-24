@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 data/*.sqlite*
+data/ge6-vote-targets.json
 *.log
 .DS_Store
 work/

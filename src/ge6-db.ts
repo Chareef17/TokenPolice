@@ -34,6 +34,20 @@ export type CandidateInput = {
 
 export type CandidateProfile = CandidateInput & { active: boolean; fetchedAt: string };
 
+export type ChainEventInput = {
+  chainId: string;
+  contractAddress: string;
+  txHash: string;
+  logIndex: number;
+  blockNumber: number;
+  blockHash: string;
+  voterAddress: string;
+  candidateId?: string;
+  amount: string;
+  blockTimestamp: string;
+  rawLogJson: string;
+};
+
 export class Ge6Repository {
   private db: Database.Database;
 
@@ -203,6 +217,40 @@ export class Ge6Repository {
       JOIN candidate_profiles p ON p.candidate_id = c.candidate_id
       WHERE p.active = 1 AND c.member_name LIKE ? ORDER BY c.member_name COLLATE NOCASE LIMIT 25`)
       .all(`%${query.trim()}%`) as Array<{ name: string; value: string }>;
+  }
+
+  candidateIdForMember(memberName: string): string | undefined {
+    const row = this.db.prepare("SELECT candidate_id FROM candidates WHERE member_name = ? COLLATE NOCASE LIMIT 1")
+      .get(memberName.trim()) as { candidate_id: string } | undefined;
+    return row?.candidate_id;
+  }
+
+  hasChainEvent(txHash: string, logIndex: number): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM chain_events WHERE tx_hash = ? AND log_index = ?")
+      .get(txHash, logIndex));
+  }
+
+  insertChainEvent(event: ChainEventInput): boolean {
+    const result = this.db.prepare(`INSERT OR IGNORE INTO chain_events
+      (chain_id, contract_address, tx_hash, log_index, block_number, block_hash, voter_address,
+       candidate_id, amount, block_timestamp, status, raw_log_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?)`)
+      .run(event.chainId, event.contractAddress.toLowerCase(), event.txHash.toLowerCase(), event.logIndex,
+        event.blockNumber, event.blockHash.toLowerCase(), event.voterAddress.toLowerCase(),
+        event.candidateId ?? null, event.amount, event.blockTimestamp, event.rawLogJson);
+    return result.changes > 0;
+  }
+
+  getSyncState(key: string): string | undefined {
+    const row = this.db.prepare("SELECT state_value FROM sync_state WHERE state_key = ?")
+      .get(key) as { state_value: string } | undefined;
+    return row?.state_value;
+  }
+
+  setSyncState(key: string, value: string): void {
+    this.db.prepare(`INSERT INTO sync_state (state_key, state_value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(state_key) DO UPDATE SET state_value = excluded.state_value, updated_at = CURRENT_TIMESTAMP`)
+      .run(key, value);
   }
 
   private hydrateCandidate(row: Record<string, unknown>): CandidateProfile {

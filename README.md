@@ -189,7 +189,7 @@ Nammonn: 500 tokens (2 tx)
 ```text
 /whale setup channel:#whale-alert
 /whale setup channel:#whale-alert threshold:1000
-/whale test amount:1000 address:0x1234... tx:0xabcd...
+/whale test member:Sita amount:1000 address:0x1234...
 /whale status
 /whale disable
 ```
@@ -313,7 +313,51 @@ node --version
 
 ## แผน GE6 และ TokenX
 
-การอ่านข้อมูลบน TokenX แบบ real-time ต้องมี:
+บอตมี Blockscout indexer สำหรับอ่าน Event `Voted` จากสัญญา GE6 โดยไม่ต้องใช้ RPC หรือ WebSocket ค่าเริ่มต้นที่ตรวจจาก transaction สร้าง poll คือ:
+
+```text
+Contract:    0x86a1F49e1b1Cbd69971e99B66123264c75Ac2c8F
+Create tx:   0x151b2ca5a3715fc6fc23eb52218b292487c971e1cdb4d432d8521ef192689919
+Start block: 49475830
+End block:   50696530
+Event:       Voted(address indexed _voter, uint256 indexed _index, uint256 _amount, bytes32 _hash)
+Chain ID:    35
+Decimals:    18
+```
+
+เปิดใช้งานด้วยค่าใน `.env.example` บอตจะ poll ทุก 10 วินาที บันทึก checkpoint ลง `ge6-analysis.sqlite` และไม่ยิง transaction เดิมซ้ำ:
+
+```env
+TOKENX_BLOCKSCOUT_API_URL=https://api.tokenx.finance/api/v2
+GE6_INDEXER_ENABLED=true
+GE6_CONTRACT_ADDRESS=0x86a1F49e1b1Cbd69971e99B66123264c75Ac2c8F
+GE6_START_BLOCK=49475830
+GE6_TOKEN_DECIMALS=18
+GE6_POLL_INTERVAL_MS=10000
+GE6_TARGET_MAP_PATH=./data/ge6-vote-targets.json
+```
+
+ตรวจว่าเครื่องที่รันบอตเข้าถึง API ได้ก่อนเปิดบอต:
+
+```bash
+npm run ge6:check-api
+```
+
+Blockscout อาจกำหนด API key หรือป้องกัน automated requests หากได้รับ `401`, `403` หรือ `429` ให้ขอ key จาก Token X แล้วใส่ `TOKENX_BLOCKSCOUT_API_KEY` โดยไม่ต้องแก้โค้ด
+
+ฟิลด์ `_hash` คือรหัสเป้าหมายการโหวต ถ้าเป็น bytes32 ที่อ่านเป็นชื่อได้ บอตจะแปลงอัตโนมัติ ถ้าเป็น hash ทึบ ให้สร้าง `data/ge6-vote-targets.json` จากตัวอย่าง `ge6-vote-targets.example.json`:
+
+```json
+{
+  "0xค่า_hash_เต็ม_64_หลัก": "Sita"
+}
+```
+
+เมื่อยังไม่มี mapping บอตยังบันทึก transaction และส่ง Whale Alert ได้ แต่จะแสดง `ไม่ทราบเมมเบอร์ (0x...)` จนกว่าจะเติม mapping แล้วเปิดบอตใหม่
+
+ข้อมูลสดที่ indexer บันทึกประกอบด้วย transaction hash, log index, block, voter address, member/target, token amount, timestamp และ raw log เฉพาะใน `ge6-analysis.sqlite` ฐานข้อมูลเดิมไม่ถูกแก้ไข
+
+ข้อมูลที่ต้องตรวจซ้ำหาก Token X เปลี่ยนระบบในภายหลัง:
 
 - Contract address ของ token และระบบโหวต
 - Contract ABI หรือ event signature
@@ -322,7 +366,7 @@ node --version
 - นิยามว่า transaction แบบใดถือเป็นคะแนนโหวต
 - Mapping ระหว่าง contract/address ผู้รับกับชื่อเมมเบอร์
 
-เมื่อมีข้อมูลเหล่านี้ สามารถเพิ่ม chain indexer สำหรับติดตาม transaction ใหม่ โดยบันทึกเฉพาะใน `ge6-analysis.sqlite` ข้อมูลย้อนหลังใน `historical-votes.sqlite` จะใช้แบบ read-only สำหรับฝึกและคำนวณ feature
+ข้อมูลย้อนหลังใน `historical-votes.sqlite` จะใช้แบบ read-only สำหรับฝึกและคำนวณ feature
 
 โมเดลแบ่งผลลัพธ์เป็นสองระดับ:
 
