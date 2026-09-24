@@ -328,6 +328,7 @@ Decimals:    18
 เปิดใช้งานด้วยค่าใน `.env.example` บอตจะ poll ทุก 10 วินาที บันทึก checkpoint ลง `ge6-analysis.sqlite` และไม่ยิง transaction เดิมซ้ำ:
 
 ```env
+TOKENX_BLOCKSCOUT_MODE=browser
 TOKENX_BLOCKSCOUT_API_URL=https://api.tokenx.finance/api/v2
 GE6_INDEXER_ENABLED=true
 GE6_CONTRACT_ADDRESS=0x86a1F49e1b1Cbd69971e99B66123264c75Ac2c8F
@@ -335,6 +336,8 @@ GE6_START_BLOCK=49475830
 GE6_TOKEN_DECIMALS=18
 GE6_POLL_INTERVAL_MS=10000
 GE6_TARGET_MAP_PATH=./data/ge6-vote-targets.json
+GE6_BROWSER_CHANNEL=chrome
+GE6_BROWSER_HEADLESS=true
 ```
 
 ตรวจว่าเครื่องที่รันบอตเข้าถึง API ได้ก่อนเปิดบอต:
@@ -343,7 +346,28 @@ GE6_TARGET_MAP_PATH=./data/ge6-vote-targets.json
 npm run ge6:check-api
 ```
 
-Blockscout อาจกำหนด API key หรือป้องกัน automated requests หากได้รับ `401`, `403` หรือ `429` ให้ขอ key จาก Token X แล้วใส่ `TOKENX_BLOCKSCOUT_API_KEY` โดยไม่ต้องแก้โค้ด
+`browser` mode ใช้ Chrome ที่ติดตั้งบน PC เปิด TokenX Scan ก่อน แล้วอ่าน API ภายใน browser session จึงไม่ต้องใช้ Blockscout API key หากใช้ Microsoft Edge ให้เปลี่ยนเป็น:
+
+```env
+GE6_BROWSER_CHANNEL=msedge
+```
+
+ถ้า TokenX ป้องกัน headless browser ให้ใช้:
+
+```env
+GE6_BROWSER_HEADLESS=false
+```
+
+กรณีนี้จะเห็นหน้าต่าง browser เปิดค้างอยู่ ห้ามปิดระหว่างที่บอตทำงาน หากติดตั้ง browser ไว้ตำแหน่งอื่น สามารถกำหนด path เต็มผ่าน `GE6_BROWSER_EXECUTABLE_PATH`
+
+โหมด `api` แบบเดิมยังใช้ได้สำหรับเครื่องที่ไม่ถูกปฏิเสธหรือมี API key:
+
+```env
+TOKENX_BLOCKSCOUT_MODE=api
+TOKENX_BLOCKSCOUT_API_KEY=ใส่_key_ถ้ามี
+```
+
+Docker image ปัจจุบันไม่มี Chrome ในตัว จึงควรใช้ `api` mode เมื่อรันด้วย Docker หรือปรับ image ให้ติดตั้ง Chromium เพิ่ม
 
 ฟิลด์ `_hash` คือรหัสเป้าหมายการโหวต ถ้าเป็น bytes32 ที่อ่านเป็นชื่อได้ บอตจะแปลงอัตโนมัติ ถ้าเป็น hash ทึบ ให้สร้าง `data/ge6-vote-targets.json` จากตัวอย่าง `ge6-vote-targets.example.json`:
 

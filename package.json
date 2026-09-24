@@ -24,6 +24,7 @@
     "dotenv": "^17.2.2",
     "ethers": "^6.17.0",
     "exceljs": "^4.4.0",
+    "playwright-core": "^1.63.0",
     "zod": "^4.1.5"
   },
   "devDependencies": {

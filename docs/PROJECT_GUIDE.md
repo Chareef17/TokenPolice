@@ -204,6 +204,8 @@ GE6 production poll:
 - Event `Voted(address indexed _voter,uint256 indexed _index,uint256 _amount,bytes32 _hash)`
 - `_amount` ใช้ 18 decimals
 - Polling ผ่าน Blockscout API v2 ไม่พึ่ง RPC
+- ค่าเริ่มต้นใช้ Playwright ควบคุม Chrome แบบ headless เพื่อผ่าน browser-only access โดยไม่ใช้ API key
+- เปลี่ยนกลับเป็น direct API ได้ด้วย `TOKENX_BLOCKSCOUT_MODE=api`
 - Cursor อยู่ใน `sync_state`; raw confirmed logs อยู่ใน `chain_events`
 - `_hash` ถูก resolve จาก bytes32 string หรือ `data/ge6-vote-targets.json`
 

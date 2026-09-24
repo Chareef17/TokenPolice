@@ -5,6 +5,7 @@ import type { Ge6IndexerConfig } from "./config.js";
 import type { Ge6Repository } from "./ge6-db.js";
 import type { BotSettingsRepository } from "./bot-settings-db.js";
 import { sendWhaleAlerts } from "./whale-alert.js";
+import { BlockscoutTransport } from "./blockscout-transport.js";
 
 const votedInterface = new Interface([
   "event Voted(address indexed _voter, uint256 indexed _index, uint256 _amount, bytes32 _hash)",
@@ -92,6 +93,7 @@ export class BlockscoutGe6Indexer {
   private running = false;
   private readonly stateKey: string;
   private targetMap: Map<string, string>;
+  private readonly transport: BlockscoutTransport;
 
   constructor(
     private readonly client: Client,
@@ -103,6 +105,7 @@ export class BlockscoutGe6Indexer {
   ) {
     this.stateKey = `blockscout:${config.contractAddress.toLowerCase()}:checkpoint`;
     this.targetMap = loadVoteTargetMap(config.targetMapPath);
+    this.transport = new BlockscoutTransport(config, explorerUrl, fetchFn);
   }
 
   start(): void {
@@ -110,12 +113,13 @@ export class BlockscoutGe6Indexer {
     void this.pollSafely();
     this.timer = setInterval(() => void this.pollSafely(), this.config.pollIntervalMs);
     this.timer.unref();
-    console.log(`GE6 Blockscout indexer: ${this.config.contractAddress} เริ่ม block ${this.config.startBlock}`);
+    console.log(`GE6 Blockscout indexer (${this.config.accessMode}): ${this.config.contractAddress} เริ่ม block ${this.config.startBlock}`);
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    void this.transport.close();
   }
 
   async pollOnce(): Promise<number> {
@@ -196,23 +200,14 @@ export class BlockscoutGe6Indexer {
     const url = new URL(`${this.config.apiUrl}/addresses/${this.config.contractAddress}/logs`);
     if (this.config.apiKey) url.searchParams.set("apikey", this.config.apiKey);
     for (const [key, value] of Object.entries(cursor || {})) if (value !== null) url.searchParams.set(key, String(value));
-    return this.fetchJson<LogsPage>(url);
+    return this.transport.getJson<LogsPage>(url);
   }
 
   private async fetchTransactionTimestamp(hash: string): Promise<string | undefined> {
     const url = new URL(`${this.config.apiUrl}/transactions/${hash}`);
     if (this.config.apiKey) url.searchParams.set("apikey", this.config.apiKey);
-    const transaction = await this.fetchJson<{ timestamp?: string }>(url);
+    const transaction = await this.transport.getJson<{ timestamp?: string }>(url);
     return transaction.timestamp;
-  }
-
-  private async fetchJson<T>(url: URL): Promise<T> {
-    const response = await this.fetchFn(url, {
-      headers: { accept: "application/json", "user-agent": "TokenPolice/0.1" },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!response.ok) throw new Error(`Blockscout ${response.status} ${response.statusText}: ${url.pathname}`);
-    return await response.json() as T;
   }
 }
 

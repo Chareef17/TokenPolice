@@ -24,8 +24,12 @@ const optionalInteger = (value: string | undefined, fallback: number): number =>
 
 export type Ge6IndexerConfig = {
   enabled: boolean;
+  accessMode: "api" | "browser";
   apiUrl: string;
   apiKey?: string;
+  browserChannel: string;
+  browserExecutablePath?: string;
+  browserHeadless: boolean;
   contractAddress: string;
   startBlock: number;
   pollIntervalMs: number;
@@ -40,8 +44,12 @@ export function ge6IndexerConfig(): Ge6IndexerConfig {
   if (tokenDecimals > 255) throw new Error("GE6_TOKEN_DECIMALS ต้องอยู่ระหว่าง 0-255");
   return {
     enabled: process.env.GE6_INDEXER_ENABLED?.trim().toLowerCase() !== "false",
+    accessMode: process.env.TOKENX_BLOCKSCOUT_MODE?.trim().toLowerCase() === "api" ? "api" : "browser",
     apiUrl: (process.env.TOKENX_BLOCKSCOUT_API_URL || "https://api.tokenx.finance/api/v2").replace(/\/$/, ""),
     apiKey: process.env.TOKENX_BLOCKSCOUT_API_KEY?.trim() || undefined,
+    browserChannel: process.env.GE6_BROWSER_CHANNEL?.trim() || "chrome",
+    browserExecutablePath: process.env.GE6_BROWSER_EXECUTABLE_PATH?.trim() || undefined,
+    browserHeadless: process.env.GE6_BROWSER_HEADLESS?.trim().toLowerCase() !== "false",
     contractAddress,
     startBlock: optionalInteger(process.env.GE6_START_BLOCK, 49_475_830),
     pollIntervalMs: Math.max(optionalInteger(process.env.GE6_POLL_INTERVAL_MS, 10_000), 3_000),
